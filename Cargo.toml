@@ -1,0 +1,12 @@
+[package]
+name = "dwarfdump"
+version = "0.1.0"
+authors = ["Zach Pomerantz <zmp@umich.edu>"]
+
+[dependencies]
+fallible-iterator = "0.1.2"
+gimli = "0.13.0"
+object = "0.3.0"
+# these are bin-dependencies, which lacks cargo support
+getopts = "0.2"
+memmap = "0.4.0"
