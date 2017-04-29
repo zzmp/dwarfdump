@@ -1,13 +1,13 @@
 extern crate object;
 
+mod parser;
+use parser::*;
+
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 
 use object::Object;
-
-mod parser;
-use parser::*;
 
 #[derive(Debug)]
 #[derive(Clone)]
@@ -31,9 +31,22 @@ pub struct Parameter {
     pub modifiers: Modifiers,
     pub specifier: String,
     pub declarator: Option<String>,
-    offset: Option<usize>
+    unit_offset: usize,
+    type_offset: Option<usize>
 }
 pub type Parameters = Vec<Parameter>;
+
+#[derive(Debug)]
+#[derive(Clone)]
+pub struct Subprogram {
+    pub declarator: Parameter,
+    pub parameters: Parameters
+}
+
+pub struct Symbols {
+    pub subprograms: BTreeMap<String, Subprogram>,
+    types: HashMap<usize, HashMap<usize, Type>>
+}
 
 impl fmt::Display for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -67,13 +80,6 @@ impl fmt::Display for Parameter {
     }
 }
 
-#[derive(Debug)]
-#[derive(Clone)]
-pub struct Subprogram {
-    pub declarator: Parameter,
-    pub parameters: Parameters
-}
-
 impl fmt::Display for Subprogram {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Vec cannot impl fmt::Display, so it is done here
@@ -92,16 +98,11 @@ impl fmt::Display for Subprogram {
 
 impl Subprogram {
     fn type_offsets(&self) -> Vec<Option<usize>> {
-        self.parameters.iter().fold(vec![self.declarator.offset], |mut o, p| {
-            o.push(p.offset);
+        self.parameters.iter().fold(vec![self.declarator.type_offset], |mut o, p| {
+            o.push(p.type_offset);
             o
         })
     }
-}
-
-pub struct Symbols {
-    pub subprograms: BTreeMap<String, Subprogram>,
-    types: HashMap<usize, Type>
 }
 
 impl Symbols {

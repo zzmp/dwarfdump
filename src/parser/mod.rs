@@ -1,6 +1,10 @@
 extern crate fallible_iterator;
 extern crate gimli;
 
+mod shared;
+mod subprogram;
+mod types;
+
 use std::option::Option;
 
 use object::Object;
@@ -12,18 +16,9 @@ pub use self::gimli::LittleEndian as LittleEndian;
 pub use self::gimli::BigEndian as BigEndian;
 
 use super::*;
+use self::shared::*;
 
-mod subprogram;
-mod types;
-
-enum Tag {
-    BaseType,
-    Modifier(Modifier),
-    Subroutine,
-    Other(gimli::DwTag)
-}
-
-pub struct Parser<'file, Endian: 'file + gimli::Endianity> {
+struct Parser<'file, Endian: 'file + gimli::Endianity> {
     str: &'file gimli::DebugStr<'file, Endian>,
     unit: &'file Unit<'file, Endian>,
     abbrev: &'file gimli::Abbreviations
@@ -67,14 +62,16 @@ pub fn parse<Endian: gimli::Endianity>(file: object::File) -> Symbols {
             }
 
             // parse types
+            let mut types = HashMap::new();
             type_offsets.sort();
             type_offsets.dedup();
             type_offsets.iter().fold((), |_, &o| {
                 if let Some(offset) = o {
-                    let t = parser.parse_type(&symbols.types, offset);
-                    symbols.types.insert(offset, t);
+                    let t = parser.parse_type(&mut types, offset);
+                    types.insert(offset, t);
                 }
             });
+            symbols.types.insert(unit.offset().0, types);
 
             symbols
         })
