@@ -14,6 +14,7 @@ pub use self::gimli::BigEndian as BigEndian;
 use super::*;
 
 mod subprogram;
+mod types;
 
 enum Tag {
     BaseType,
@@ -48,21 +49,33 @@ pub fn parse<Endian: gimli::Endianity>(file: object::File) -> Symbols {
                 unit: &unit
             };
 
-            // parse
+            let mut type_offsets = Vec::new();
+
+            // parse subprograms
             let mut entries = unit.entries(&abbrev);
             while let Some((_, entry)) = entries.next_dfs().expect("advancing DIE") {
-                match entry.tag() {
-                    gimli::DW_TAG_subprogram => {
-                        if entry.attr(gimli::DW_AT_external).expect("reading external").is_some() &&
-                            entry.attr(gimli::DW_AT_prototyped).expect("reading prototyped").is_some() {
-                            let subprogram = parser.parse_subprogram(&entry);
-                            let symbol = subprogram.declarator.declarator.as_ref().expect("reading declarator").clone();
-                            symbols.subprograms.insert(symbol, subprogram);
-                        }
-                    },
-                    _ => ()
+                if entry.tag() == gimli::DW_TAG_subprogram {
+                    if entry.attr(gimli::DW_AT_external).expect("reading external").is_some() &&
+                        entry.attr(gimli::DW_AT_prototyped).expect("reading prototyped").is_some() {
+                        let subprogram = parser.parse_subprogram(&entry);
+                        type_offsets.append(&mut subprogram.type_offsets());
+
+                        let symbol = subprogram.declarator.declarator.as_ref().expect("reading declarator").clone();
+                        symbols.subprograms.insert(symbol, subprogram);
+                    }
                 }
             }
+
+            // parse types
+            type_offsets.sort();
+            type_offsets.dedup();
+            type_offsets.iter().fold((), |_, &o| {
+                if let Some(offset) = o {
+                    let t = parser.parse_type(&symbols.types, offset);
+                    symbols.types.insert(offset, t);
+                }
+            });
+
             symbols
         })
         .unwrap_or(Symbols::new())

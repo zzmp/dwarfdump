@@ -1,6 +1,6 @@
 extern crate object;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Write;
 
@@ -35,33 +35,6 @@ pub struct Parameter {
 }
 pub type Parameters = Vec<Parameter>;
 
-#[derive(Debug)]
-#[derive(Clone)]
-pub struct Subprogram {
-    pub declarator: Parameter,
-    pub parameters: Parameters
-}
-
-pub struct Symbols {
-    pub subprograms: BTreeMap<String, Subprogram>
-}
-
-impl Symbols {
-    pub fn from(file: object::File) -> Symbols {
-        if file.is_little_endian() {
-            parse::<LittleEndian>(file)
-        } else {
-            parse::<BigEndian>(file)
-        }
-    }
-
-    fn new() -> Symbols {
-        Symbols {
-            subprograms: BTreeMap::new()
-        }
-    }
-}
-
 impl fmt::Display for Parameter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.modifiers.first() {
@@ -94,6 +67,13 @@ impl fmt::Display for Parameter {
     }
 }
 
+#[derive(Debug)]
+#[derive(Clone)]
+pub struct Subprogram {
+    pub declarator: Parameter,
+    pub parameters: Parameters
+}
+
 impl fmt::Display for Subprogram {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Vec cannot impl fmt::Display, so it is done here
@@ -107,5 +87,36 @@ impl fmt::Display for Subprogram {
         });
 
         write!(f, "{}({})", self.declarator, parameters)
+    }
+}
+
+impl Subprogram {
+    fn type_offsets(&self) -> Vec<Option<usize>> {
+        self.parameters.iter().fold(vec![self.declarator.offset], |mut o, p| {
+            o.push(p.offset);
+            o
+        })
+    }
+}
+
+pub struct Symbols {
+    pub subprograms: BTreeMap<String, Subprogram>,
+    types: HashMap<usize, Type>
+}
+
+impl Symbols {
+    pub fn from(file: object::File) -> Symbols {
+        if file.is_little_endian() {
+            parse::<LittleEndian>(file)
+        } else {
+            parse::<BigEndian>(file)
+        }
+    }
+
+    fn new() -> Symbols {
+        Symbols {
+            subprograms: BTreeMap::new(),
+            types: HashMap::new()
+        }
     }
 }
