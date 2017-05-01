@@ -8,6 +8,13 @@ impl<'file, Endian: gimli::Endianity> Parser<'file, Endian> {
         }
     }
 
+    pub fn parse_parameter(&self, entry: &DIE<Endian>) -> Parameter {
+        Parameter {
+            declarator: self.parse_name(entry),
+            specifier: self.parse_type(self.parse_type_offset(entry)) 
+        }
+    }
+
     fn parse_parameters(&self, entry: &DIE<Endian>) -> Parameters {
         let mut parameters = Parameters::new();
 
@@ -29,41 +36,5 @@ impl<'file, Endian: gimli::Endianity> Parser<'file, Endian> {
         }
 
         parameters
-    }
-
-    fn parse_parameter(&self, entry: &DIE<Endian>) -> Parameter {
-        let declarator = self.parse_name(entry);
-        let mut specifier = None;
-        let mut modifiers = Modifiers::new();
-        let mut type_offset = self.parse_type_offset(entry);
-
-        while let Some(offset) = type_offset {
-            let cursor = self.cursor_at_offset(offset);
-            let entry = cursor.current().expect("checking DIE");
-            type_offset = self.parse_type_offset(entry);
-
-            match self.parse_tag(entry) {
-                Tag::Subroutine => {
-                    modifiers.pop(); // all subroutines are pointers
-                    let subprogram = self.parse_subprogram(entry);
-                    modifiers.push(Modifier::Subroutine(subprogram));
-                },
-                Tag::Modifier(modifier) => { modifiers.push(modifier); },
-                // if it's not a modifier, it's a named type
-                _ => {
-                    specifier = self.parse_name(entry);
-                    type_offset = Some(offset); // reset the offset to point to this
-                    break; // don't descend - that is for type parsing
-                }
-            }
-        }
-
-        Parameter {
-            declarator: declarator,
-            specifier: specifier.unwrap_or(String::from("void")),
-            modifiers: modifiers,
-            unit_offset: self.unit.offset().0,
-            type_offset: type_offset.map(|o| o.0),
-        }
     }
 }

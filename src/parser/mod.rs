@@ -4,7 +4,9 @@ extern crate gimli;
 mod shared;
 mod subprogram;
 mod types;
+mod members;
 
+use std::collections::HashMap;
 use std::option::Option;
 
 use object::Object;
@@ -21,7 +23,8 @@ use self::shared::*;
 struct Parser<'file, Endian: 'file + gimli::Endianity> {
     str: &'file gimli::DebugStr<'file, Endian>,
     unit: &'file Unit<'file, Endian>,
-    abbrev: &'file gimli::Abbreviations
+    abbrev: &'file gimli::Abbreviations,
+    types: HashMap<usize, Type>
 }
 
 pub fn parse<Endian: gimli::Endianity>(file: object::File) -> Symbols {
@@ -41,10 +44,9 @@ pub fn parse<Endian: gimli::Endianity>(file: object::File) -> Symbols {
             let parser = Parser {
                 str: &str,
                 abbrev: &abbrev,
-                unit: &unit
+                unit: &unit,
+                types: HashMap::new()
             };
-
-            let mut type_offsets = Vec::new();
 
             // parse subprograms
             let mut entries = unit.entries(&abbrev);
@@ -53,25 +55,12 @@ pub fn parse<Endian: gimli::Endianity>(file: object::File) -> Symbols {
                     if entry.attr(gimli::DW_AT_external).expect("reading external").is_some() &&
                         entry.attr(gimli::DW_AT_prototyped).expect("reading prototyped").is_some() {
                         let subprogram = parser.parse_subprogram(&entry);
-                        type_offsets.append(&mut subprogram.type_offsets());
-
                         let symbol = subprogram.declarator.declarator.as_ref().expect("reading declarator").clone();
+                        println!("ZZMP {}", symbol);
                         symbols.subprograms.insert(symbol, subprogram);
                     }
                 }
             }
-
-            // parse types
-            let mut types = HashMap::new();
-            type_offsets.sort();
-            type_offsets.dedup();
-            type_offsets.iter().fold((), |_, &o| {
-                if let Some(offset) = o {
-                    let t = parser.parse_type(&mut types, offset);
-                    types.insert(offset, t);
-                }
-            });
-            symbols.types.insert(unit.offset().0, types);
 
             symbols
         })

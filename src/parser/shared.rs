@@ -4,7 +4,12 @@ pub enum Tag {
     BaseType,
     Modifier(Modifier),
     Subroutine,
-    Structure,
+    TypeDef,
+    Enum,
+    Struct,
+    Union,
+    Array,
+    Subrange,
     Other(gimli::DwTag)
 }
 
@@ -46,7 +51,12 @@ impl<'file, Endian: gimli::Endianity> Parser<'file, Endian> {
             gimli::DW_TAG_volatile_type => Tag::Modifier(Modifier::Volatile),
             gimli::DW_TAG_restrict_type => Tag::Modifier(Modifier::Restrict),
             gimli::DW_TAG_subroutine_type => Tag::Subroutine,
-            gimli::DW_TAG_structure_type => Tag::Structure,
+            gimli::DW_TAG_typedef => Tag::TypeDef,
+            gimli::DW_TAG_enumeration_type => Tag::Enum,
+            gimli::DW_TAG_structure_type => Tag::Struct,
+            gimli::DW_TAG_union_type => Tag::Union,
+            gimli::DW_TAG_array_type => Tag::Array,
+            gimli::DW_TAG_subrange_type => Tag::Subrange,
             tag => Tag::Other(tag)
         }
     }
