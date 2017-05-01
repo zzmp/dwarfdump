@@ -30,7 +30,7 @@ pub enum TypeValue {
     Array(Parameters),
     Union(Parameters),
     Struct(Parameters),
-    Circular
+    Pointer 
 }
 
 #[derive(Debug)]
@@ -80,7 +80,7 @@ impl Type {
                     TypeValue::Array(_) => "array",
                     TypeValue::Union(_) => "union",
                     TypeValue::Struct(_) => "struct",
-                    TypeValue::Circular => unreachable!()
+                    TypeValue::Pointer => unreachable!()
                 };
 
                 let specifier = self.modifiers.iter().fold(self.name.clone(), |mut s, m| {
@@ -105,19 +105,6 @@ impl Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.format(f, None)
-    }
-}
-
-impl Parameter {
-    fn circular() -> Self {
-        Parameter {
-            declarator: None,
-            specifier: Type {
-                name: String::from("circular"),
-                modifiers: Vec::new(),
-                value: TypeValue::Circular
-            }
-        }
     }
 }
 

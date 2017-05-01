@@ -10,24 +10,14 @@ impl<'file, Endian: gimli::Endianity> Parser<'file, Endian> {
             {
                 let (_, child) = children.next_dfs().expect("starting DIE").expect("checking DIE");
                 if child.tag() == gimli::DW_TAG_member {
-                    println!("MEMBER {:?} {:?} {:?}", child.offset(), self.parse_type_offset(child), entry.offset());
-                    let member = if self.parse_type_offset(child) == Some(entry.offset()) {
-                        Parameter::circular()
-                    } else {
-                        self.parse_parameter(child)
-                    };
+                    let member = self.parse_parameter(child);
                     members.push(member);
                 }
             }
 
             while let Some(child) = children.next_sibling().expect("advancing DIE") {
                 if child.tag() == gimli::DW_TAG_member {
-                    println!("MEMBER {:?} {:?} {:?}", child.offset(), self.parse_type_offset(child), entry.offset());
-                    let member = if self.parse_type_offset(child) == Some(entry.offset()) {
-                        Parameter::circular()
-                    } else {
-                        self.parse_parameter(child)
-                    };
+                    let member = self.parse_parameter(child);
                     members.push(member);
                 }
             }

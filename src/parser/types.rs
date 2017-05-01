@@ -19,7 +19,12 @@ impl<'file, Endian: gimli::Endianity> Parser<'file, Endian> {
             let entry = cursor.current().expect("getting entry");
             let tag = self.parse_tag(entry);
 
+            let mut has_ptr = false;
             if let Tag::Modifier(ref modifier) = tag {
+                has_ptr = match modifier {
+                    &Modifier::Pointer => true,
+                    _ => has_ptr
+                };
                 modifiers.push(modifier.clone());
                 type_offset = self.parse_type_offset(entry);
                 continue;
@@ -43,20 +48,27 @@ impl<'file, Endian: gimli::Endianity> Parser<'file, Endian> {
                 Tag::Enum => {
                     value = TypeValue::Enum;
                 },
-                Tag::Array => {
-                    name = self.parse_name(entry).unwrap_or(String::from("void"));
-                    println!("ARRAY {:?}", name);
-                    value = TypeValue::Array(self.parse_members(entry));
-                },
-                Tag::Struct => {
-                    name = self.parse_name(entry).unwrap_or(String::from("void"));
-                    println!("STRUCT {:?}", name);
-                    value = TypeValue::Struct(self.parse_members(entry));
-                },
-                Tag::Union => {
-                    name = self.parse_name(entry).unwrap_or(String::from("void"));
-                    println!("UNION {:?}", name);
-                    value = TypeValue::Union(self.parse_members(entry));
+                Tag::Array | Tag::Struct | Tag::Union => {
+                    println!("ZZMP {}", has_ptr);
+                    if has_ptr {
+                        value = TypeValue::Pointer;
+                    } else {
+                        match tag {
+                            Tag::Array => {
+                                println!("ARRAY {}", self.parse_name(entry).unwrap_or(String::from("huh")));
+                                value = TypeValue::Array(self.parse_members(entry));
+                            },
+                            Tag::Struct => {
+                                println!("STRUCT {}", self.parse_name(entry).unwrap_or(String::from("huh")));
+                                value = TypeValue::Struct(self.parse_members(entry));
+                            },
+                            Tag::Union => {
+                                println!("UNION {}", self.parse_name(entry).unwrap_or(String::from("huh")));
+                                value = TypeValue::Union(self.parse_members(entry));
+                            },
+                            _ => unreachable!()
+                        }
+                    }
                 },
                 _ => unreachable!()
             }
