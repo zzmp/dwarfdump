@@ -56,9 +56,8 @@ fn main() {
 
         let symbols = Symbols::from(file);
 
-        symbols.subprograms.iter()
-            .fold((), |_, (k, v)| {
-                println!("{}\t{}", k, v);
-            });
+        symbols.functions.iter().fold((), |_, (_, v)| {
+            println!("{:?}", v);
+        });
     }
 }

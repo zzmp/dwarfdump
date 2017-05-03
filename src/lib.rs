@@ -1,15 +1,54 @@
 extern crate object;
 
+use object::Object;
+
 mod parser;
-use parser::*;
+use parser::{ parse, LittleEndian, BigEndian };
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Write;
 
-use object::Object;
+pub struct Symbols {
+    pub functions: BTreeMap<String, Function>
+}
 
+#[derive(Clone)]
+pub struct Function {
+    pub name: Option<String>,
+    pub typed: Typed,
+    pub parameters: Parameters
+}
+
+#[derive(Clone)]
+pub struct Parameter {
+    pub name: Option<String>,
+    pub typed: Typed
+}
+pub type Parameters = Vec<Parameter>;
+pub type Member = Parameter;
+pub type Members = Vec<Member>;
+
+#[derive(Clone)]
+pub struct Typed {
+    pub name: String,
+    pub value: TypedValue,
+    pub modifiers: Modifiers
+}
+
+#[derive(Clone)]
 #[derive(Debug)]
+pub enum TypedValue {
+    Base,
+    Enum,
+    Typedef(Box<Typed>),
+    Function(Box<Function>),
+    Struct(Members),
+    Union(Members),
+    Array(Box<Typed>, u16),
+    Circular
+}
+
 #[derive(Clone)]
 pub enum Modifier {
     Pointer,
@@ -19,116 +58,6 @@ pub enum Modifier {
     Restrict
 }
 pub type Modifiers = Vec<Modifier>;
-
-#[derive(Debug)]
-#[derive(Clone)]
-pub enum TypeValue {
-    Base,
-    Enum,
-    Subroutine(Box<Subprogram>),
-    TypeDef(Box<Type>),
-    Array(Parameters),
-    Union(Parameters),
-    Struct(Parameters),
-    Pointer 
-}
-
-#[derive(Debug)]
-#[derive(Clone)]
-pub struct Type {
-    pub name: String,
-    pub modifiers: Modifiers,
-    pub value: TypeValue
-}
-
-#[derive(Debug)]
-#[derive(Clone)]
-pub struct Parameter {
-    pub declarator: Option<String>,
-    pub specifier: Type
-}
-pub type Parameters = Vec<Parameter>;
-
-#[derive(Debug)]
-#[derive(Clone)]
-pub struct Subprogram {
-    pub declarator: Parameter,
-    pub parameters: Parameters
-}
-
-pub struct Symbols {
-    pub subprograms: BTreeMap<String, Subprogram>
-}
-
-impl Type {
-    fn format(&self, f: &mut fmt::Formatter, declarator: Option<&str>) -> fmt::Result {
-       match self.value {
-            TypeValue::Subroutine(ref subprogram) => {
-                let mut subprogram = subprogram.clone();
-                subprogram.declarator.declarator = Some(match declarator {
-                    Some(ref declarator) => format!("(*{})", declarator),
-                    None => format!("(*)")
-                });
-                write!(f, "{}", subprogram)
-            },
-            _ => {
-                let typevalue = match self.value {
-                    TypeValue::Base => "base",
-                    TypeValue::Enum => "enum",
-                    TypeValue::Subroutine(_) => unreachable!(),
-                    TypeValue::TypeDef(_) => "typedef",
-                    TypeValue::Array(_) => "array",
-                    TypeValue::Union(_) => "union",
-                    TypeValue::Struct(_) => "struct",
-                    TypeValue::Pointer => unreachable!()
-                };
-
-                let specifier = self.modifiers.iter().fold(self.name.clone(), |mut s, m| {
-                    match m {
-                        &Modifier::Pointer => { s += "*"; }
-                        &Modifier::Reference => { s += "&"; },
-                        &Modifier::Const => { s += " const"; },
-                        &Modifier::Volatile => { s += " volatile"; },
-                        &Modifier::Restrict => { s += " restrict"; }
-                    }
-                    s
-                });
-                match declarator {
-                    Some(ref declarator) => write!(f, "{} {} {}", typevalue, specifier, declarator),
-                    None => write!(f, "{} {}", typevalue, specifier)
-                }
-            }
-        }
-    }
-}
-
-impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.format(f, None)
-    }
-}
-
-impl fmt::Display for Parameter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.specifier.format(f, self.declarator.as_ref().map(|s| s.as_str()))
-    }
-}
-
-impl fmt::Display for Subprogram {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Vec cannot impl fmt::Display, so it is done here
-        let parameters = self.parameters.iter().fold(String::new(), |mut s, p| {
-            let _ = if s.is_empty() {
-                write!(s, "{}", p)
-            } else {
-                write!(s, ", {}", p)
-            };
-            s
-        });
-
-        write!(f, "{}({})", self.declarator, parameters)
-    }
-}
 
 impl Symbols {
     pub fn from(file: object::File) -> Symbols {
@@ -141,7 +70,88 @@ impl Symbols {
 
     fn new() -> Symbols {
         Symbols {
-            subprograms: BTreeMap::new()
+            functions: BTreeMap::new()
         }
+    }
+}
+
+impl fmt::Debug for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let typeds = self.parameters.iter().fold(format!("\n{:?}", self.typed), |mut s, p| {
+            let _ = write!(s, "{:?}", p);
+            s
+        });
+        write!(f, "{}\n---{}\n\n", self, typeds)
+    }
+}
+
+impl fmt::Display for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Vec cannot impl fmt::Display, so it is done here
+        let parameters = self.parameters.iter().fold(String::new(), |mut s, p| {
+            let _ = if s.is_empty() {
+                write!(s, "{}", p)
+            } else {
+                write!(s, ", {}", p)
+            };
+            s
+        });
+
+        match self.name {
+            Some(ref name) => write!(f, "{} {}({})", name, self.typed, parameters),
+            None => write!(f, "{}({})", self.typed, parameters)
+        }
+    }
+}
+
+impl fmt::Debug for Parameter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let name = match self.name {
+            Some(ref name) => format!("name: {}\t", name),
+            None => String::new()
+        };
+        write!(f, "\n{}{:?}", name, self.typed)
+    }
+}
+
+impl fmt::Display for Parameter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.typed.value {
+            TypedValue::Function(ref function) => {
+                let mut function_ptr = (*function).clone();
+                function_ptr.name = Some(match self.name {
+                    Some(ref name) => format!("(*{})", name),
+                    None => String::from("(*)")
+                });
+                write!(f, "{}", function_ptr)
+            },
+            _ => {
+                match self.name {
+                    Some(ref name) => write!(f, "{} {}", self.typed, name),
+                    None => write!(f, "{}", self.typed)
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Debug for Typed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {:#?}", self, self.value)
+    }
+}
+
+impl fmt::Display for Typed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let specifier = self.modifiers.iter().fold(self.name.clone(), |s, m| {
+            match m {
+                &Modifier::Pointer => s + "*",
+                &Modifier::Reference => s + "&",
+                &Modifier::Const => s + " const",
+                &Modifier::Volatile => s + " volatile",
+                &Modifier::Restrict => s + " restrict"
+            }
+        });
+        write!(f, "{}", specifier)
     }
 }
