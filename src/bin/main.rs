@@ -12,7 +12,9 @@ use std::io;
 use std::fs;
 use std::process;
 
-struct Flags { }
+struct Flags {
+    print_types: bool
+}
 
 fn print_usage(opts: &getopts::Options) -> ! {
     let brief = format!("Usage: {} <options> <file>...", env::args().next().unwrap());
@@ -21,7 +23,8 @@ fn print_usage(opts: &getopts::Options) -> ! {
 }
 
 fn main() {
-    let opts = getopts::Options::new();
+    let mut opts = getopts::Options::new();
+    opts.optflag("t", "print-types", "print types");
 
     let matches = match opts.parse(env::args().skip(1)) {
         Ok(m) => m,
@@ -34,7 +37,8 @@ fn main() {
         print_usage(&opts);
     }
 
-    let _ = Flags{
+    let flags = Flags{
+        print_types: matches.opt_present("t")
     };
 
     let mut first_file = true;
@@ -57,7 +61,11 @@ fn main() {
         let symbols = Symbols::from(file);
 
         symbols.functions.iter().fold((), |_, (_, v)| {
-            println!("{:?}", v);
+            if flags.print_types {
+                println!("{:?}\n", v);
+            } else {
+                println!("{}", v);
+            }
         });
     }
 }

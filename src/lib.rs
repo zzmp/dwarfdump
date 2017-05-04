@@ -78,10 +78,10 @@ impl Symbols {
 impl fmt::Debug for Function {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let typeds = self.parameters.iter().fold(format!("\n{:?}", self.typed), |mut s, p| {
-            let _ = write!(s, "{:?}", p);
+            let _ = write!(s, "\n{:?}", p);
             s
         });
-        write!(f, "{}\n---{}\n\n", self, typeds)
+        write!(f, "{}{}", self, typeds)
     }
 }
 
@@ -110,7 +110,7 @@ impl fmt::Debug for Parameter {
             Some(ref name) => format!("name: {}\t", name),
             None => String::new()
         };
-        write!(f, "\n{}{:?}", name, self.typed)
+        write!(f, "{}{:?}", name, self.typed)
     }
 }
 
