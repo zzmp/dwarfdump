@@ -1,7 +1,10 @@
 [package]
 name = "dwarfdump"
 version = "0.1.0"
+license = "MIT"
 authors = ["Zach Pomerantz <zmp@umich.edu>"]
+description = "A DWARF parser to extract function signatures and types from shared libraries"
+keywords = ["DWARF", "debug", "elf", "signature", "shared"]
 
 [dependencies]
 fallible-iterator = "0.1.2"
